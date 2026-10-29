@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>교수님 말씀 기록 · 번역 + 답변 찾기</title>
+<style>
+  :root{color-scheme:light;--bg:#f3f4f8;--card:#fff;--text:#111827;--muted:#4b5563;--line:#d5d9e4;--accent:#1d4ed8;--g:#6d28d9;--hi:#fff3b8;--red:#dc2626;--bar:#fffffff2;--qbg:#14224a;--qtext:#fff;--qsub:#c7d6ff}
+  *{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--text);line-height:1.5;font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Segoe UI",sans-serif}
+  button,input{font:inherit;touch-action:manipulation}
+  #top{position:fixed;top:0;left:0;right:0;z-index:20;background:var(--bar);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+       padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px}
+  #bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;font-size:14px}
+  #bar button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:7px 12px;cursor:pointer}
+  #mic{font-weight:700;font-size:15px;background:var(--accent)!important;color:#fff!important;border:none!important;padding:9px 18px!important}
+  #mic.on{background:var(--red)!important;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(229,57,53,.5)}50%{box-shadow:0 0 0 8px rgba(229,57,53,0)}}
+  #status{color:var(--muted);flex:1 1 120px;font-size:14px;font-weight:600}
+  #typed{flex:1 1 200px;min-width:0;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:8px 10px}
+  #heard{margin-top:8px;line-height:1.45}
+  #heardText{color:var(--muted);min-height:1.45em;font-size:clamp(16px,2.2vw,20px);max-height:7.4em;overflow-y:auto;overflow-wrap:anywhere}
+  #heardText b{color:var(--text);font-weight:700}
+  #chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;padding:5px 12px;font-size:14px;cursor:pointer;max-width:100%;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+  .chip.k{background:var(--hi);border-color:var(--accent)}
+  .wrap{max-width:1260px;margin:0 auto;padding:150px 14px calc(60px + env(safe-area-inset-bottom,0px));display:flex;gap:18px;align-items:flex-start}
+  main{flex:1 1 0;min-width:0}
+  /* 오른쪽 패널: 교수님 말씀 기록 + 한글 번역 */
+  #side{flex:0 0 clamp(340px,40%,520px);position:sticky;top:var(--topH,150px);display:flex;flex-direction:column;
+        height:calc(100vh - var(--topH,150px) - 14px);height:calc(100dvh - var(--topH,150px) - 14px);
+        background:var(--card);border:2px solid var(--accent);border-radius:14px;padding:12px 14px}
+  #sideHead{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;flex:0 0 auto}
+  #sideTag{font-size:14px;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--accent);color:#fff;white-space:nowrap;flex:0 0 auto}
+  #txSum{font-size:13px;color:var(--muted);flex:1 1 auto}
+  #sideHead button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:3px 10px;cursor:pointer;white-space:nowrap;font-size:13px}
+  #sideToggle{display:none}
+  #sideBody{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+  #txNote{flex:0 0 auto;font-size:12.5px;color:var(--muted);margin:6px 0 8px}
+  #txJump{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:2;border:none;border-radius:999px;padding:7px 16px;
+          background:var(--accent);color:#fff;font-weight:700;font-size:13.5px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+  details.help{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+  details.help summary{cursor:pointer;font-weight:700}
+  .card{position:relative;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px;
+        scroll-margin-top:170px;transition:background .2s,border-color .2s,box-shadow .2s;cursor:pointer}
+  .card .q{font-size:calc(clamp(16px,2.2vw,19px)*var(--fs,1));line-height:1.45;color:var(--accent);margin-bottom:10px;font-weight:800}
+  .card .en{font-size:calc(clamp(20px,3.4vw,28px)*var(--fs,1));line-height:1.5;font-weight:700;margin:0 0 8px}
+  .card .ko{font-size:calc(clamp(16px,2.4vw,19px)*var(--fs,1));line-height:1.6;color:var(--muted);margin:0}
+  .card.top{border-color:var(--accent);background:var(--hi);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+  .card.top .ko{color:var(--text)}
+  .card.top .q{color:#1e3a8a}
+  .card.cand{border-color:var(--accent);border-style:dashed}
+  .card.top::before,.card.cand::before{content:attr(data-tag);position:absolute;top:-11px;right:14px;font-size:12px;font-weight:700;
+        background:var(--accent);color:#fff;border-radius:999px;padding:2px 10px}
+  .card.cand::before{background:var(--muted)}
+  .dim .card:not(.top):not(.cand){opacity:.55}
+  #lang{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:7px 8px}
+  #bar button.act{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #log div{border-bottom:1px solid var(--line);padding:4px 0}
+  #txList{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;border-top:1px solid var(--line);padding-bottom:8px}
+  #txList:empty::before{content:attr(data-empty);display:block;padding:14px 2px;color:var(--muted);font-size:15px;line-height:1.7}
+  #txList .b{padding:9px 2px 10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;word-break:break-word}
+  #txList .t{color:var(--muted);font-size:12px;font-weight:400;margin-right:6px}
+  #txList .en{font-size:calc(17px*var(--fs,1));line-height:1.55;font-weight:600}
+  #txList .lv{font-weight:400;font-style:italic;color:var(--muted)}
+  #txList .k{margin-top:4px;font-size:calc(17px*var(--fs,1));line-height:1.65;color:var(--accent)}
+  #txList .k:empty{display:none}
+  #txList .mine .en,#txList .mine .k{color:var(--muted)}
+  #txList .live .en{font-weight:400;font-style:italic;color:var(--muted)}
+  #txList .mine,#txList .live{color:var(--muted)}
+  #txList .live{font-style:italic}
+  @media (max-width:859px){
+    .wrap{display:block}
+    #side{position:fixed;left:8px;right:8px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:15;height:auto;max-height:46vh;max-height:46dvh;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+    #sideToggle{display:inline-block}
+    #txList{min-height:96px}
+    #sideHead{flex-wrap:nowrap}
+    #sideTag .wide,#txNote{display:none}
+    #txSum{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #side.min #sideBody{display:none}
+    #heardText{max-height:none;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+  }
+  @media (max-width:720px){#top{padding-left:10px;padding-right:10px} .wrap{padding-top:190px} #typed{flex-basis:100%}}
+</style>
+</head>
+<body>
+<div id="top">
+  <div id="bar">
+    <button id="mic">🎤 시작</button>
+    <span id="status">대기 중 — 시작을 누르고 교수님 질문을 들려주세요</span>
+    <button id="next" title="다음 질문 준비">⟲ 다음 질문</button>
+    <button id="lockBtn" title="켜면 내가 답변을 읽는 동안 화면을 고정해요 (기본: 꺼짐 = 정지 버튼 전까지 계속 질문 반영)">🔓 답변 고정 꺼짐</button>
+    <button id="fm" title="글자 작게">A−</button><button id="fp" title="글자 크게">A+</button>
+    <select id="lang" title="교수님 영어 억양에 맞는 인식 모델 (인식이 자꾸 틀리면 바꿔 보세요)"><option value="en-US">영어 · 미국</option><option value="en-GB">영어 · 영국</option><option value="en-AU">영어 · 호주</option><option value="en-IN">영어 · 인도</option><option value="en-CA">영어 · 캐나다</option></select>
+    <input id="typed" placeholder="질문을 직접 입력해도 찾아줘요 (Enter)" enterkeyhint="go" autocomplete="off">
+  </div>
+  <div id="heard"><div id="heardText">교수님 질문이 여기에 표시돼요</div><div id="chips"></div></div>
+</div>
+<div class="wrap">
+<main>
+  <details class="help"><summary>🙋 못 알아들었을 때 쓰는 말</summary>
+    <p><b>Sorry, could you say that again, please?</b><br>죄송하지만 다시 한 번 말씀해 주시겠어요?</p>
+    <p><b>Could you speak a little more slowly, please?</b><br>조금만 천천히 말씀해 주시겠어요?</p>
+    <p><b>That's a good question. Let me think for a moment.</b><br>좋은 질문이네요. 잠시 생각해 볼게요.</p>
+  </details>
+  <details class="help"><summary>📝 최근 인식 기록 (틀렸다면 맞는 카드를 탭하면 학습해요)</summary><div id="log" style="font-size:14px;line-height:1.6">아직 없어요</div></details>
+  <div id="list"></div>
+</main>
+<aside id="side">
+  <div id="sideHead"><span id="sideTag">🗒 교수님 말씀<span class="wide"> · 실시간 번역</span></span><span id="txSum"></span><button id="txCopy">복사</button><button id="txClear">지우기</button><button id="sideToggle" title="접기/펼치기">▾</button></div>
+  <div id="sideBody">
+    <div id="txNote">마이크가 들은 말을 순서대로 모두 남기고, 바로 아래에 한글 번역을 붙여요</div>
+    <div id="txList" data-empty="🎤 시작을 누르면 교수님 말씀이 여기에 영어로 기록되고, 바로 아래에 한글 번역이 붙어요."></div>
+    <button id="txJump" hidden>↓ 최신 말씀으로</button>
+  </div>
+</aside>
+</div>
+<script>
+/* =====================================================================
+   예상 질문 & 답변  (kw = [키워드("|"로 같은 뜻 묶음), 점수])
+   ===================================================================== */
+const WHY="why|reason|special|attract|appeal";
+const DATA=[
+{q:"Can you introduce yourself?",kw:[["introduce|yourself|introduction",3],["name|who|about",1.5]],
+ en:"My name is Jeon Woo-chan, and my major is Media and Communication. In my free time, I enjoy watching YouTube, playing games, and reading webtoons.",
+ ko:"제 이름은 전우찬이고, 전공은 미디어커뮤니케이션입니다. 여가 시간에는 유튜브 보기, 게임하기, 웹툰 읽기를 즐깁니다."},
+{q:"What is your favorite PlayStation game?",kw:[["playstation|ps|ps5|ps4|console",3],["favorite|favourite|best|most",1.5],["game|play",1]],
+ en:"My favorite game is GTA 5, because the graphics are amazing and I can move around freely in the game.",
+ ko:"제가 가장 좋아하는 게임은 GTA 5입니다. 그래픽이 멋지고 게임 속에서 자유롭게 돌아다닐 수 있기 때문입니다."},
+{q:"What do you usually watch on YouTube?",kw:[["youtube|video|channel",1.5],["watch|watching",1],["usually|mostly|what|kind|content",1.5],["gaming|gameplay",1]],
+ en:"I mostly watch gaming videos, because watching gameplay is fun and exciting.",
+ ko:"저는 주로 게임 영상을 봅니다. 게임 플레이를 보는 것이 재미있고 흥미진진하기 때문입니다."},
+{q:"What gaming channel or YouTuber do you like?",kw:[["youtuber|streamer|channel|creator",3],["favorite|follow|subscribe|gaming",1]],
+ en:"I usually watch many different gaming channels, because I enjoy funny reactions and learning new game tips.",
+ ko:"저는 특정 채널보다 여러 게임 채널을 봅니다. 재미있는 리액션을 보고 새로운 게임 팁을 배우는 것이 즐겁기 때문입니다."},
+{q:"Why do you like watching YouTube?",kw:[[WHY,2],["youtube",2],["like|love|enjoy|fun",1]],
+ en:"I love YouTube, because it is fun, and my tiredness from the day goes away when I watch it at my desk.",
+ ko:"저는 유튜브를 정말 좋아합니다. 책상에서 유튜브를 보면 하루의 피로가 사라져서 즐겁기 때문입니다."},
+{q:"Why do you watch YouTube and do other things at the same time?",kw:[["same|together|multitask|multitasking|simultaneous|device|tablet|monitor|desk|computer",2.5],["youtube|watch",1],["other|thing|doing",1]],
+ en:"I put many devices on my desk, because I like to watch YouTube and do other things at the same time.",
+ ko:"저는 책상 위에 여러 기기를 둡니다. 유튜브를 보면서 다른 일도 동시에 하는 것을 좋아하기 때문입니다."},
+{q:"What games do you play on your smartphone?",kw:[["smartphone|phone|mobile|cellphone|app",3],["game|play",1]],
+ en:"On my smartphone, I usually play simple and easy games, because I can enjoy them quickly anytime.",
+ ko:"스마트폰으로는 주로 간단하고 쉬운 게임을 합니다. 언제든 빠르게 즐길 수 있기 때문입니다."},
+{q:"What genre of games do you like?",kw:[["genre|type|kind|style",2.5],["game|play",1],["open|world|openworld|racing|race|car",2],["action|rpg|fps|shooting|adventure|sport|simulation|puzzle|strategy",1.5]],
+ en:"My favorite genres are open-world and racing games, because I can go anywhere freely and I love the fast speed.",
+ ko:"제가 좋아하는 장르는 오픈월드와 레이싱 게임입니다. 어디든 자유롭게 갈 수 있고 빠른 속도감이 좋기 때문입니다."},
+{q:"Why do you like playing games?",kw:[[WHY,2],["game|gaming|playing",2],["like|love|enjoy|fun",1]],
+ en:"I love playing games, because I can stop thinking about everything else while I am playing.",
+ ko:"저는 게임을 하는 동안 다른 모든 생각을 멈출 수 있어서 게임을 좋아합니다."},
+{q:"Why do you turn on YouTube while you play games?",kw:[["while|during|same|next|both|together",1.5],["game|play|playing",1],["youtube",1.5],["why",1]],
+ en:"I turn on YouTube next to me, because it helps me relax and focus on the game at the same time.",
+ ko:"게임을 할 때 옆에 유튜브를 켜둡니다. 편하게 쉬면서 동시에 게임에 집중할 수 있기 때문입니다."},
+{q:"What kind of webtoons do you like to read?",kw:[["webtoon|comic|manga|cartoon",2.5],["kind|genre|type|what",2.5],["read",0.5]],
+ en:"I like action and fantasy webtoons, because the stories are exciting and the drawing styles are very colorful and cool.",
+ ko:"저는 액션과 판타지 웹툰을 좋아합니다. 스토리가 흥미진진하고 그림체가 매우 화려하고 멋지기 때문입니다."},
+{q:"Where and when do you read webtoons?",kw:[["where|when|night|bed|lying|usually",2],["webtoon|read|reading",1.5]],
+ en:"I usually read webtoons at night, lying comfortably on my bed, because it is relaxing.",
+ ko:"저는 보통 밤에 침대에 편하게 누워서 웹툰을 봅니다. 편안하게 쉴 수 있기 때문입니다."},
+{q:"Do you listen to music while reading webtoons?",kw:[["music|song|headphone|earphone|sound",3],["listen|play",1.5],["webtoon|read",1]],
+ en:"Yes, I always listen to music when I read, because good music makes the story much more exciting.",
+ ko:"네, 웹툰을 볼 때는 항상 음악을 듣습니다. 좋은 음악이 이야기를 훨씬 더 흥미롭게 만들어 주기 때문입니다."},
+{q:"Why do you like webtoons?",kw:[[WHY,2],["webtoon",2],["art|drawing|draw|style|colorful|picture|artwork",2],["like|love|enjoy",1]],
+ en:"I love webtoons, because they have fancy and amazing art styles, and the colorful drawings make me happy.",
+ ko:"저는 웹툰을 좋아합니다. 멋지고 화려한 그림체가 있고, 알록달록한 그림을 보면 기분이 좋아지기 때문입니다."},
+{q:"What would you recommend to us?",kw:[["recommend|suggest|recommendation|advice",3],["webtoon|game|youtube|us|others|everyone",1]],
+ en:"I recommend webtoons, because they are easy to start and the stories and art are so fun.",
+ ko:"저는 웹툰을 추천합니다. 시작하기 쉽고 이야기와 그림이 정말 재미있기 때문입니다."},
+{q:"Which of the three activities do you like best?",kw:[["best|most|favorite|prefer|choose|top|pick|which|rank",1.5],["three|activity|activities|hobby|hobbies",2.5],["one|among|between",1]],
+ en:"If I have to choose one, it is playing games, because I can fully focus and forget everything else.",
+ ko:"하나만 고른다면 게임하기입니다. 완전히 집중해서 다른 모든 걸 잊을 수 있기 때문입니다."},
+{q:"Why are you an indoor person? Don't you like going outside?",kw:[["indoor|outside|outdoor|introvert|exercise|sport|outgoing",3],["people|crowd|person|go|out",1]],
+ en:"I prefer staying at home, because being with many people makes me tired, and I can recharge alone.",
+ ko:"저는 집에 있는 것을 더 좋아합니다. 많은 사람과 있으면 피곤해지고, 혼자 있어야 에너지를 채울 수 있기 때문입니다."},
+{q:"Don't you feel lonely or bored when you stay at home alone?",kw:[["lonely|bored|boring|boredom|loneliness|lonesome",3],["alone|myself|home",1.5]],
+ en:"No, I never feel bored or lonely, because I have so many fun things to do at home, like YouTube, games, and webtoons.",
+ ko:"아니요, 전혀 외롭거나 심심하지 않습니다. 집에서 유튜브, 게임, 웹툰처럼 할 수 있는 재미있는 일이 정말 많기 때문입니다."},
+{q:"How many hours do you spend on your hobbies on weekends?",kw:[["hour|minute|long|often",3],["weekend|spend|free|hobby|activity",1.5]],
+ en:"I usually spend about three to four hours on weekends, because it helps me forget my school stress and relax completely.",
+ ko:"보통 주말에 3~4시간 정도 보냅니다. 학교 스트레스를 잊고 완전히 쉬는 데 도움이 되기 때문입니다."},
+{q:"What do you do on weekdays? Are you busy?",kw:[["weekday|school|busy|schedule|study|homework|class|exam",3],["free|time|week",1]],
+ en:"On weekdays I am busy with school, so I mostly enjoy my free time on weekends.",
+ ko:"평일에는 학교 때문에 바빠서, 여가 시간은 주로 주말에 즐깁니다."},
+{q:"Do you spend time with friends?",kw:[["friend|together|someone|social|meet|family|other",3]],
+ en:"Sometimes I play online with friends, but I usually enjoy my time alone, because it is more comfortable.",
+ ko:"가끔은 친구들과 온라인으로 게임하지만, 보통은 혼자 보내는 시간이 더 편해서 즐깁니다."},
+{q:"How does your free time help you?",kw:[["help|energy|stress|tired|tiredness|healing|relax|recharge|benefit|effect|mean|important",2.5],["free|time|hobby|hobbies",1]],
+ en:"My free time gives me new energy for the next day, because it comforts my tired day and relieves my stress.",
+ ko:"여가 시간은 저에게 다음 날을 위한 새로운 에너지를 줍니다. 지친 하루를 위로하고 스트레스를 풀어 주기 때문입니다."},
+{q:"Aren't you worried about your eyes or too much screen time?",kw:[["health|healthy|eye|screen|worry|worried|addict|addiction|problem|unhealthy|waste",3]],
+ en:"A little, so I take short breaks and stretch, because I care about my eyes and my health.",
+ ko:"조금은 걱정돼서 짧게 쉬고 스트레칭을 합니다. 제 눈과 건강을 소중히 생각하기 때문입니다."},
+{q:"How is your major related to your hobbies?",kw:[["major|media|communication|related|connect|career|future|job",2.5],["hobby|hobbies|free",1]],
+ en:"Yes, because I study Media and Communication, I enjoy thinking about how videos, games, and webtoons are made.",
+ ko:"네, 저는 미디어커뮤니케이션을 공부해서 영상, 게임, 웹툰이 어떻게 만들어지는지 생각해 보는 것을 즐깁니다."},
+{q:"Do you want to try a new hobby?",kw:[["new|try|another|else|learn|plan|want",2],["hobby|hobbies|activity|future",1.5]],
+ en:"Yes, I want to try drawing, because I love the art in webtoons and I want to draw by myself.",
+ ko:"네, 그림 그리기를 해보고 싶습니다. 웹툰의 그림을 좋아해서 직접 그려보고 싶기 때문입니다."},
+{q:"What do you usually do in your free time?",kw:[["free|leisure|spare|pastime|hobby|hobbies",2],["usually|often|normally|do",1],["time|activity|activities",1]],
+ en:"In my free time, I enjoy three main activities: watching YouTube, playing games, and reading webtoons.",
+ ko:"여가 시간에는 세 가지 주요 활동을 즐깁니다. 유튜브 보기, 게임하기, 웹툰 읽기입니다."},
+{q:"When do you have free time?",kw:[["when|usually|weekend|schedule|day",2],["free|time",1.5]],
+ en:"I usually have free time on weekends when I have no schedule.",
+ ko:"저는 보통 일정이 없는 주말에 여가 시간이 있습니다."},
+{q:"Where do you usually do these activities?",kw:[["where|place|location|home|house|room",2.5],["activity|activities|do|usually",1]],
+ en:"I usually do them at home, because I am an indoor person and I love spending time alone.",
+ ko:"저는 보통 집에서 합니다. 저는 집에 있는 것을 좋아하고 혼자 보내는 시간을 사랑하기 때문입니다."},
+{q:"Can you tell me more about it?",kw:[["more|explain|detail|elaborate|example|tell",2.5],["about|that|it",0.5]],
+ en:"Sure. These activities give me energy, because they let me relax alone after a busy week.",
+ ko:"물론입니다. 이 활동들은 바쁜 한 주를 보낸 뒤 혼자 쉴 수 있게 해 줘서 저에게 에너지를 줍니다."},
+{q:"How did you start playing games or watching webtoons?",kw:[["start|begin|began|first|since|old",2.5],["game|webtoon|youtube|hobby",1]],
+ en:"I started when I was young, because my friends showed me, and I have loved them ever since.",
+ ko:"어릴 때 친구들이 알려줘서 시작했고, 그 후로 계속 좋아하고 있습니다."},
+{q:"How often do you play games or watch YouTube?",kw:[["often|frequency|every|everyday|daily|week",2.5],["game|youtube|webtoon|play|watch",1]],
+ en:"I enjoy them almost every weekend, and sometimes for a short time after my daily work.",
+ ko:"거의 매주 주말에 즐기고, 가끔은 하루 일을 마친 뒤 짧게 즐깁니다."},
+{q:"Thank you for your presentation.",kw:[["thank|thanks|great|nice|well|done|presentation|excellent|job",2.5]],
+ en:"Thank you very much for listening, and thank you for your question.",
+ ko:"들어 주셔서, 그리고 질문해 주셔서 정말 감사합니다."},
+{q:"Has your knowledge in Media and Communication ever changed the way you watch YouTube videos?",kw:[["media|communication|major|knowledge|study|studying",2.5],["change|changed|different|perspective|view|way|affect",2],["youtube|video|watch|watching",1.5]],
+ en:"Yes, it has. Now I notice how YouTubers use editing and thumbnails to get more viewers.",
+ ko:"네, 그렇습니다. 이제 유튜버들이 더 많은 시청자를 얻기 위해 편집과 썸네일을 어떻게 활용하는지 눈에 보입니다."},
+{q:"Do you think these hobbies will affect your future career path or job choice?",kw:[["career|job|path|choice|future|work",3],["affect|influence|impact|effect|help|connect",2],["hobby|hobbies",1.5]],
+ en:"Yes, I think so, because watching YouTube and webtoons helps me understand what content people like, and it gives me many ideas for media work.",
+ ko:"네, 그렇게 생각합니다. 유튜브와 웹툰을 보면서 사람들이 어떤 콘텐츠를 좋아하는지 이해하게 되고, 미디어 관련 일에 대한 아이디어도 많이 얻기 때문입니다."},
+{q:"Beyond watching videos and reading webtoons, have you ever thought about becoming a content creator yourself?",kw:[["creator|content|become|becoming|yourself|own|producer",3],["youtuber|streamer|channel|video|make|making|produce|upload",1.5]],
+ en:"Yes, I sometimes think about it, because I want to make videos about games and share my fun with other people.",
+ ko:"네, 가끔 생각해봅니다. 게임에 관한 영상을 만들어서 제 즐거움을 다른 사람들과 나누고 싶기 때문입니다."},
+{q:"You mentioned GTA 5 is your favorite. Are there any other PlayStation titles you enjoy playing?",kw:[["other|another|else|besides|title|titles|more",3],["playstation|ps|ps5|console",2.5],["game|games",0.5]],
+ en:"I also enjoy Gran Turismo 7 and Red Dead Redemption 2, because they have beautiful worlds and feel very realistic.",
+ ko:"그란 투리스모 7과 레드 데드 리뎀션 2도 즐깁니다. 세계가 아름답고 매우 현실적으로 느껴지기 때문입니다.",ex:1},
+{q:"You said you sometimes play online games with friends. What specific games do you usually play together?",kw:[["online|multiplayer|team|together|friend|friends",3],["specific|which|what|game|games|play",1.5]],
+ en:"We usually play team shooting games like Valorant, because it is fun to work together and talk with my friends.",
+ ko:"보통 발로란트 같은 팀 슈팅 게임을 합니다. 친구들과 협력하고 대화하는 것이 재미있기 때문입니다."},
+{q:"If a foreign friend asked you to recommend a Korean webtoon, which one would you recommend first?",kw:[["foreign|foreigner|korean|korea|abroad|international",3],["recommend|suggest|first|which|one",2],["webtoon|webtoons",1.5]],
+ en:"I would recommend Solo Leveling first, because it has an exciting action story and amazing art, so foreign friends will enjoy it too.",
+ ko:"『나 혼자만 레벨업』을 가장 먼저 추천하겠습니다. 흥미진진한 액션 스토리와 멋진 그림이 있어서 외국인 친구도 좋아할 것이기 때문입니다."},
+{q:"How much money do you usually spend a month on buying games or paying for webtoons?",kw:[["money|cost|pay|paying|buy|buying|price|expensive|won|dollar|dollars|budget",3],["month|monthly|spend|game|games|webtoon|webtoons",1.5]],
+ en:"I spend about twenty thousand won a month, because I mostly watch free YouTube videos and only buy a game when I really want it.",
+ ko:"한 달에 2만 원 정도 씁니다. 주로 무료 유튜브 영상을 보고, 정말 원할 때만 게임을 사기 때문입니다."},
+{q:"You mentioned spending 3 to 4 hours on hobbies on weekends. How do you manage this time during exam periods?",kw:[["exam|exams|test|midterm|final|finals|manage|adjust",3],["study|studying|period|time|hobby|hobbies|free|schedule",1.5]],
+ en:"During exams, I reduce my free time to about one hour, because I need to focus on studying, but I still take a short break to stay fresh.",
+ ko:"시험 기간에는 여가 시간을 1시간 정도로 줄입니다. 공부에 집중해야 하기 때문이고, 그래도 컨디션 유지를 위해 짧은 휴식은 취합니다."},
+{q:"What do you think are the biggest pros and cons of spending your free time alone?",kw:[["pro|pros|con|cons|advantage|advantages|disadvantage|disadvantages|benefit|drawback|downside|merit|positive|negative",3],["alone|free|time|myself|solo",1.5]],
+ en:"The biggest pro is that I can relax at my own pace, because I don't need to care about other people. The con is that I may lose chances to meet friends.",
+ ko:"가장 큰 장점은 남을 신경 쓰지 않고 제 속도대로 쉴 수 있다는 것이고, 단점은 친구를 만날 기회를 놓칠 수 있다는 것입니다."},
+{q:"You might feel stuffy staying indoors all the time. How do you refresh yourself when that happens?",kw:[["stuffy|stifling|refresh|refreshing|fresh|mood|change|switch|cooped",3],["indoor|indoors|inside|home|always|stay|staying|feel",1.5]],
+ en:"I go for a short walk or meet my friends, because fresh air helps me feel better and I can come back to my hobbies with new energy.",
+ ko:"짧게 산책하거나 친구를 만납니다. 신선한 공기가 기분을 좋게 해주고, 새로운 에너지로 취미로 돌아올 수 있기 때문입니다."},
+{q:"You said you want to try drawing. Is there a specific style or tool, like digital drawing on a tablet, that you want to use?",kw:[["draw|drawing|tablet|digital|tool|tools|ipad|pen|art",3],["style|specific|use|using|want|try|how|which",1.5]],
+ en:"I want to try digital drawing on a tablet, because it is easy to fix mistakes and I can make colorful art like my favorite webtoons.",
+ ko:"태블릿으로 디지털 드로잉을 해보고 싶습니다. 실수를 고치기 쉽고, 좋아하는 웹툰처럼 화려한 그림을 그릴 수 있기 때문입니다."},
+{q:"If you were to draw your own webtoon, what kind of story would you like to tell?",kw:[["own|story|stories|plot|tell|author|artist|draw|create|make|making",2.5],["webtoon|webtoons|comic",2],["kind|type|genre|what|would",1]],
+ en:"I would make an action fantasy story about a normal student who gets special powers, because it is exciting and many people can enjoy it.",
+ ko:"평범한 학생이 특별한 힘을 얻는 액션 판타지를 만들겠습니다. 흥미진진해서 많은 사람이 즐길 수 있기 때문입니다."},
+{q:"Why did you choose Media and Communication as your major?",kw:[["major|department|choose|chose|choice|pick|select|reason|why",3],["media|communication|study|studying",2]],
+ en:"I chose it, because I am interested in how media and content influence people, and I love YouTube and webtoons.",
+ ko:"미디어와 콘텐츠가 사람들에게 어떤 영향을 주는지 관심이 있고, 유튜브와 웹툰을 정말 좋아하기 때문에 선택했습니다."},
+{q:"What kind of music do you listen to when reading webtoons?",kw:[["music|song|songs|kpop|soundtrack|genre|playlist",3],["kind|type|genre|what|which|listen|listening",2],["webtoon|read|reading",1]],
+ en:"I listen to calm K-pop and game soundtracks, because they match the mood of the story and help me focus.",
+ ko:"잔잔한 K-pop과 게임 OST를 듣습니다. 이야기 분위기와 잘 어울리고 집중에도 도움이 되기 때문입니다."}
+];
+const QKO={"Can you introduce yourself?": "자기소개를 해 주시겠어요?", "What is your favorite PlayStation game?": "가장 좋아하는 플레이스테이션 게임은 무엇인가요?", "What do you usually watch on YouTube?": "유튜브에서 주로 무엇을 보나요?", "What gaming channel or YouTuber do you like?": "어떤 게임 채널이나 유튜버를 좋아하나요?", "Why do you like watching YouTube?": "왜 유튜브 보는 것을 좋아하나요?", "Why do you watch YouTube and do other things at the same time?": "왜 유튜브를 보면서 동시에 다른 일도 하나요?", "What games do you play on your smartphone?": "스마트폰으로는 어떤 게임을 하나요?", "What genre of games do you like?": "어떤 장르의 게임을 좋아하나요?", "Why do you like playing games?": "왜 게임하는 것을 좋아하나요?", "Why do you turn on YouTube while you play games?": "왜 게임을 하는 동안 유튜브를 켜두나요?", "What kind of webtoons do you like to read?": "어떤 종류의 웹툰 읽는 것을 좋아하나요?", "Where and when do you read webtoons?": "웹툰은 어디에서, 언제 읽나요?", "Do you listen to music while reading webtoons?": "웹툰을 읽는 동안 음악을 듣나요?", "Why do you like webtoons?": "왜 웹툰을 좋아하나요?", "What would you recommend to us?": "저희에게 무엇을 추천하시겠어요?", "Which of the three activities do you like best?": "세 가지 활동 중에서 무엇을 가장 좋아하나요?", "Why are you an indoor person? Don't you like going outside?": "왜 실내 활동을 좋아하는 사람인가요? 밖에 나가는 것은 좋아하지 않나요?", "Don't you feel lonely or bored when you stay at home alone?": "집에 혼자 있으면 외롭거나 심심하지 않나요?", "How many hours do you spend on your hobbies on weekends?": "주말에 취미 활동에 몇 시간을 쓰나요?", "What do you do on weekdays? Are you busy?": "평일에는 무엇을 하나요? 바쁜가요?", "Do you spend time with friends?": "친구들과 시간을 보내나요?", "How does your free time help you?": "여가 시간이 어떤 도움이 되나요?", "Aren't you worried about your eyes or too much screen time?": "눈 건강이나 지나친 화면 시청 시간이 걱정되지 않나요?", "How is your major related to your hobbies?": "전공은 취미와 어떤 관련이 있나요?", "Do you want to try a new hobby?": "새로운 취미를 시도해 보고 싶나요?", "What do you usually do in your free time?": "여가 시간에는 보통 무엇을 하나요?", "When do you have free time?": "여가 시간은 언제 있나요?", "Where do you usually do these activities?": "이런 활동들은 보통 어디에서 하나요?", "Can you tell me more about it?": "그것에 대해 좀 더 말씀해 주시겠어요?", "How did you start playing games or watching webtoons?": "게임이나 웹툰은 어떻게 시작하게 되었나요?", "How often do you play games or watch YouTube?": "게임이나 유튜브는 얼마나 자주 하나요?", "Thank you for your presentation.": "발표 감사합니다.", "Has your knowledge in Media and Communication ever changed the way you watch YouTube videos?": "미디어커뮤니케이션 전공 지식이 유튜브 영상을 보는 방식이나 시각을 바꾼 적이 있나요?", "Do you think these hobbies will affect your future career path or job choice?": "이러한 취미들이 앞으로의 진로 방향이나 직업 선택에 어떤 영향을 미칠 것이라고 생각하나요?", "Beyond watching videos and reading webtoons, have you ever thought about becoming a content creator yourself?": "영상을 보거나 웹툰을 읽는 것을 넘어, 직접 콘텐츠 크리에이터(유튜버 등)가 되어보고 싶다는 생각은 안 해보셨나요?", "You mentioned GTA 5 is your favorite. Are there any other PlayStation titles you enjoy playing?": "GTA 5를 가장 좋아한다고 하셨는데, 그 외에 즐겨하는 다른 플레이스테이션 게임 타이틀은 무엇인가요?", "You said you sometimes play online games with friends. What specific games do you usually play together?": "친구들과 가끔 온라인 게임을 한다고 했는데, 주로 어떤 게임을 함께 즐기나요?", "If a foreign friend asked you to recommend a Korean webtoon, which one would you recommend first?": "만약 외국인 친구가 한국 웹툰을 추천해 달라고 한다면, 어떤 작품을 가장 먼저 추천하고 싶나요?", "How much money do you usually spend a month on buying games or paying for webtoons?": "게임을 구매하거나 웹툰을 결제하는 데 한 달에 비용을 보통 얼마나 쓰나요?", "You mentioned spending 3 to 4 hours on hobbies on weekends. How do you manage this time during exam periods?": "주말에 3~4시간을 취미에 쓴다고 했는데, 시험 기간에는 이 여가 시간을 어떻게 조절하나요?", "What do you think are the biggest pros and cons of spending your free time alone?": "혼자 보내는 여가 시간의 가장 큰 장점과 단점은 각각 무엇이라고 생각하나요?", "You might feel stuffy staying indoors all the time. How do you refresh yourself when that happens?": "계속 실내에만 있으면 답답할 때도 있을 텐데, 그럴 때는 어떻게 기분 전환을 하나요?", "You said you want to try drawing. Is there a specific style or tool, like digital drawing on a tablet, that you want to use?": "그림 그리기를 해보고 싶다고 하셨는데, 태블릿을 이용한 디지털 드로잉처럼 특별히 도전해보고 싶은 스타일이나 도구가 있나요?", "If you were to draw your own webtoon, what kind of story would you like to tell?": "만약 본인만의 웹툰을 직접 그리게 된다면, 어떤 스토리를 다루고 싶나요?", "Why did you choose Media and Communication as your major?": "왜 미디어커뮤니케이션을 전공으로 선택했나요?", "What kind of music do you listen to when reading webtoons?": "웹툰을 읽을 때는 어떤 종류의 음악을 듣나요?"};
+// 같은 질문을 다르게 말하는 표현들 (카드 순서와 동일)
+const PARA=[
+"Tell me about yourself|Who are you|Please introduce yourself and your major|What is your name and major",
+"Which game do you like the most on your PlayStation|Do you have a favorite console game|What is the best game you have played|Tell me about your favorite video game",
+"What kind of videos do you watch|What videos do you usually watch on YouTube|What is your favorite content on YouTube|What do you watch when you turn on YouTube",
+"Do you have a favorite YouTuber|Which channels do you watch|Who do you subscribe to|Do you follow any gaming streamers",
+"What is so good about YouTube|Why is YouTube special to you|What do you like about YouTube|Why do you enjoy watching YouTube so much",
+"Why do you use so many devices|Why do you have a PC tablet and phone on your desk|Do you do other things while watching YouTube|Can you explain the picture of your desk",
+"Do you play games on your phone|What kind of mobile games do you play|Which games do you play on your smartphone|What do you play when you are outside",
+"What types of games do you enjoy|Do you like open world or racing games|Which game genre is your favorite|Why do you like racing games|What kind of game do you like|What game genre do you like|Which genre of game do you prefer|What type of games do you play|What kind of games do you like to play|What is your favorite game genre|Do you like action games or shooting games|What kind of video games are you into",
+"What do you like about playing games|Why are games special to you|Why do you enjoy gaming so much|What makes games fun for you",
+"Why do you watch YouTube while you play|Do you watch videos while playing games|Why do you have YouTube next to you when you play",
+"Which webtoons do you read|What genre of webtoon do you enjoy|Do you have a favorite webtoon|What webtoons do you like",
+"When do you read webtoons|Where do you usually read webtoons|Do you read webtoons at night|What is your reading routine",
+"Do you listen to music when you read|Why do you listen to music while reading",
+"What do you like about webtoons|Why are webtoons special to you|Why do you love webtoon art|What is good about webtoons",
+"Which one would you recommend|Can you recommend something to me|What do you suggest for our class|Is there anything you would recommend",
+"Which hobby is your favorite|If you choose one activity which would it be|What is your number one hobby|Which do you enjoy the most among the three",
+"Are you an indoor person|Do you like going out|Why do you prefer staying at home|Why do you like being alone at home",
+"Do you ever feel lonely|Do you get bored at home|Is it boring to stay home alone|Don't you feel bored spending time alone",
+"How long do you spend on your hobbies|How much time do you spend on your free time activities|How many hours do you play games on weekends|How much time per day",
+"Are you busy during the week|What do you do on weekdays|Do you have free time on weekdays|What is your schedule like during school",
+"Do you play with friends|Do you ever go out with friends|Do you do these activities with other people|Do you prefer being with friends or alone",
+"How do you feel after your free time|Why is free time important to you|What do you get from your free time|How do these activities help you relax",
+"Is it healthy to play games so much|Do you think you spend too much time on screens|Are you worried about your health|Do your eyes hurt from the screen",
+"Is your major related to your hobbies|How does your major connect to your free time|Does your major influence your hobbies|What is your future career",
+"Do you have any plan to try something new|Is there a new activity you want to try|What other hobbies do you want to try|What do you want to do in the future",
+"What do you do when you are free|What are your hobbies|Tell me about your free time|What activities do you enjoy|Can you summarize your presentation",
+"When are you free|Do you have free time on weekends|What time do you usually have free time|How do you spend your weekends",
+"Where do you usually play games or watch videos|Do you do these activities at home|Where do you spend your free time",
+"Could you explain more|Can you give me an example|Can you say more about that|Could you elaborate on that|Tell me more",
+"When did you start playing games|How did you become interested in webtoons|When did you first watch YouTube|How long have you enjoyed these hobbies",
+"How frequently do you play games|Do you play every day|How many times a week do you read webtoons|How often do you watch YouTube",
+"Thank you for your presentation|That was a great presentation|Good job|Nice presentation thank you|Thank you very much",
+"Does your major change how you watch YouTube|Do you watch YouTube differently because of your major|Has studying media changed your point of view on videos|Do you look at YouTube videos in a different way now",
+"Will your hobbies influence your future job|How will your hobbies affect your career|Do you think your hobbies will help your future career|Will your hobbies change what job you choose",
+"Do you want to become a YouTuber|Have you thought about making your own videos|Would you like to be a content creator|Do you want to make your own content|Do you want to start your own channel",
+"Do you play any other PlayStation games|Are there other games you enjoy on PlayStation|What other console games do you like|Besides GTA what other games do you play|Do you have any other favorite PlayStation games",
+"Which games do you play online with your friends|What games do you play together with friends|What online games do you play with your friends|Do you play multiplayer games with friends|What do you usually play with your friends",
+"Which Korean webtoon would you recommend to a foreigner|What Korean webtoon do you recommend for foreign people|Can you recommend a good Korean webtoon to my friend from abroad|What is the best Korean webtoon to introduce to foreigners",
+"How much do you spend on games a month|Do you spend a lot of money on your hobbies|How much money do you spend on your hobbies|Do you pay for webtoons or games|How much money do you spend on your free time",
+"What do you do during exam season|How do you control your free time when you have exams|Do you still play games during exams|How do you balance exams and your hobbies",
+"What are the good and bad points of spending time alone|What are the advantages and disadvantages of being alone|Is there any downside to spending free time alone|What is good and what is bad about spending time by yourself",
+"What do you do when you feel stuffy at home|How do you change your mood when you stay at home too long|How do you refresh your mind when you are stuck indoors|Do you ever feel stuffy staying inside",
+"How do you want to draw|Do you want to draw on a tablet|What tool do you want to use to draw|What kind of drawing do you want to try|What style of drawing do you want to try",
+"What story would you make if you drew a webtoon|What would your own webtoon be about|If you made a webtoon what would it be about|What kind of webtoon would you create|What story do you want to tell in your own webtoon",
+"Why did you pick your major|What made you choose Media and Communication|Why are you studying Media and Communication|What is the reason you chose your major",
+"What music do you like to listen to|What songs do you listen to while reading|Which genre of music do you listen to|What kind of songs do you like|Which songs do you like to listen to when you read"
+];
+
+/* =====================================================================
+   단어 정리 · 점수 계산
+   ===================================================================== */
+function stem(w){
+  if(w.length>3&&w.endsWith("s")&&!w.endsWith("ss")) w=w.slice(0,-1);
+  if(w.length>5&&w.endsWith("ing")) w=w.slice(0,-3); else if(w.length>4&&w.endsWith("ed")) w=w.slice(0,-2);
+  if(w.length>3&&w.endsWith("e")) w=w.slice(0,-1);
+  return w;
+}
+const tokenize=t=>String(t==null?"":t).toLowerCase().replace(/['’]/g,"").split(/[^a-z0-9]+/).filter(Boolean).map(stem);
+function lev(a,b){const m=a.length,n=b.length;let p=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c;}return p[n];}
+// 소리가 비슷하면 같은 단어로 취급 (lonely≈lonley, genre≈jonra, webtoon≈web tune)
+const phMemo=new Map(); let wsMemo=new Map(), wsN=0; const WS_MAX=150000, PH_MAX=20000;   // 캐시 상한 (긴 발표에서도 메모리가 계속 늘지 않게)
+function phon(w){ let r=phMemo.get(w); if(r!==undefined) return r;
+  r=w.replace(/^g(?=[eiy])/,"j").replace(/^kn/,"n").replace(/^wr/,"r").replace(/^wh/,"w").replace(/ph/g,"f").replace(/ck/g,"k").replace(/c(?=[eiy])/g,"s")
+     .replace(/[cq]/g,"k").replace(/x/g,"ks").replace(/z/g,"s").replace(/dg/g,"j").replace(/gh/g,"").replace(/(.)\1+/g,"$1");
+  r=r.charAt(0)+r.slice(1).replace(/[aeiouyhw]/g,""); if(phMemo.size>=PH_MAX) phMemo.clear(); phMemo.set(w,r); return r; }
+function wsim(a,b){ if(a===b) return 1; if(a.length<4||b.length<4) return 0;
+  const pa=phon(a), pb=phon(b);
+  if(pa===pb&&pa.length>=3) return 0.85;                                       // 소리 같음 (계산이 싸서 저장 안 함)
+  if(Math.abs(a.length-b.length)>1) return 0;                                  // 길이 차이가 크면 바로 0 (저장 안 함)
+  return levSim(a,b); }
+function levSim(a,b){                                                          // 글자 하나만 다르면 0.8 (비싼 계산이라 결과를 캐시)
+  if(a>b){ const t=a; a=b; b=t; }                                              // 순서와 상관없는 값 → 한쪽에만 저장
+  let m=wsMemo.get(a); if(m!==undefined){ const c=m.get(b); if(c!==undefined) return c; }
+  const v=lev(a,b)<=1?0.8:0;
+  if(wsN>=WS_MAX){ wsMemo=new Map(); wsN=0; m=undefined; }
+  if(m===undefined){ m=new Map(); wsMemo.set(a,m); } m.set(b,v); wsN++; return v; }
+// [[문장, 가중치]] → Map(단어→가중치). 붙여 들린 단어(play station→playstation)도 함께 넣음
+function toBag(texts){
+  const bag=new Map(), add=(w,x)=>{ if(w.length>1&&(bag.get(w)||0)<x) bag.set(w,x); };
+  for(const [t,x] of texts){ const ws=tokenize(t);
+    ws.forEach((w,i)=>{ add(w,x); if(i) add(ws[i-1]+w,x); if(i>1) add(ws[i-2]+ws[i-1]+w,x); }); }
+  return bag;
+}
+// 들린 말(bag) 안에서 단어 a와 가장 비슷한 것의 점수. 들린 말마다 "소리 코드"와 "글자 수" 기준 색인을 한 번만 만들어 두고,
+// 후보 중 소리가 같거나 글자 수가 ±1인 단어만 비교해요 (예전에는 모든 단어와 일일이 비교 → 결과는 똑같고 훨씬 빨라요).
+function bagIndex(bag){ const ph=new Map(), len=new Map();
+  for(const [b,x] of bag){ if(b.length<4) continue; const p=phon(b); if(p.length>=3&&(ph.get(p)||0)<x) ph.set(p,x);
+    let L=len.get(b.length); if(!L){ L=[]; len.set(b.length,L); } L.push([b,x]); }
+  return bag.ix={ph,len}; }
+function bagMatch(bag,a){ const h=bag.get(a); if(h) return h; if(a.length<4) return 0;
+  const ix=bag.ix||bagIndex(bag); let best=0; const pa=phon(a);
+  if(pa.length>=3){ const x=ix.ph.get(pa); if(x) best=0.85*x; }
+  for(let L=a.length-1;L<=a.length+1;L++){ const arr=ix.len.get(L); if(arr) for(const [b,x] of arr){ if(x*0.8<=best) continue; const v=levSim(b,a)*x; if(v>best) best=v; } }   // 소리가 같은 단어는 위 색인에서 이미 처리
+  return best; }
+const TOPIC=Object.assign(Array(DATA.length).fill(""),{1:"g",2:"y",3:"y",4:"y",5:"y",6:"g",7:"g",8:"g",9:"gy",10:"w",11:"w",12:"w",13:"w",35:"g",36:"g",37:"w",43:"w",45:"w"});
+const TOPW={g:["game","gaming","playstation","console","racing","gameplay"],y:["youtube","youtuber","channel"],w:["webtoon","comic","manga","cartoon"]};
+function topicsOf(bag){ let H=""; for(const k in TOPW) if(TOPW[k].some(x=>bagMatch(bag,stem(x))>=0.8)) H+=k; return H; }
+const CARDS=DATA.map(d=>({d,kw:d.kw.map(([s,w])=>({raw:s.split("|")[0],alts:s.split("|").map(stem),w}))}));
+
+/* 표현 비교용: 질문 + 다른 표현들 + (내가 가르친 표현)을 모두 "비슷한 문장" 후보로 사용 */
+let VAR=[], IDF=new Map(), IDFMAX=1, learned=[]; const SCM=new Map();
+try{ const L=JSON.parse(localStorage.getItem("qaLearn")||"[]");
+  if(Array.isArray(L)) learned=L.map(l=>{ if(!l||typeof l.t!=="string") return null; let i=l.i;
+    if(typeof l.q==="string"&&!(Number.isInteger(i)&&DATA[i]&&DATA[i].q===l.q)) i=DATA.findIndex(d=>d.q===l.q);   // 카드 순서가 바뀌었으면 질문 문장으로 다시 찾기
+    return Number.isInteger(i)&&i>=0&&i<DATA.length?{i,q:DATA[i].q,t:l.t}:null; }).filter(Boolean); }catch(e){}
+function buildVars(){
+  VAR=DATA.map((d,i)=>[d.q,...(PARA[i]||"").split("|").filter(Boolean),...learned.filter(l=>l.i===i).map(l=>l.t)].map(t=>[...new Set(tokenize(t))]).filter(v=>v.length));
+  const df=new Map(); let n=0;
+  for(const vs of VAR) for(const v of vs){ n++; for(const w of v) df.set(w,(df.get(w)||0)+1); }
+  SCM.clear(); IDF=new Map(); for(const [w,c] of df) IDF.set(w,Math.log(1+n/c)); IDFMAX=Math.log(1+n);   // 드문 단어일수록 중요
+}
+buildVars();
+function simScore(bag,U,i){
+  const iu=U.map(u=>[u,IDF.has(u)?IDF.get(u):IDFMAX*0.5]), tot=iu.reduce((s,x)=>s+x[1],0)||1; let best=0;
+  for(const v of VAR[i]){
+    let rn=0,rd=0; for(const w of v){ const x=IDF.get(w); rd+=x; rn+=x*bagMatch(bag,w); }
+    let pn=0; for(const [u,x] of iu) if(v.includes(u)||v.some(w=>wsim(u,w))) pn+=x;
+    const sc=0.65*rn/rd+0.35*pn/tot; if(sc>best) best=sc;
+  }
+  return best;
+}
+function scoreAll(texts){
+  const key=JSON.stringify(texts); let r=SCM.get(key); if(r) return r;
+  r=scoreAllRaw(texts); if(SCM.size>60) SCM.clear(); SCM.set(key,r); return r;
+}
+function scoreAllRaw(texts){
+  const bag=toBag(texts), U=tokenize(texts[0][0]), H=topicsOf(bag);
+  return CARDS.map((c,i)=>{ let kw=0; const hit=[];
+    for(const k of c.kw){ let best=0; for(const a of k.alts) best=Math.max(best,bagMatch(bag,a)); if(best){ kw+=k.w*best; hit.push(k.raw); } }
+    const sm=simScore(bag,U,i);
+    let sc=kw+7*sm; const t=TOPIC[i];
+    if(t&&H){ if([...t].some(c=>H.includes(c))) sc+=1.5; else sc*=0.55; }
+    return {i,sc,kw,sm,hit}; }).sort((a,b)=>b.sc-a.sc);
+}
+
+/* =====================================================================
+   질문 보정 (음성인식이 잘못 들은 말 바로잡기)
+   ===================================================================== */
+const EXTRA_RE=/\b(any other|another|anything else|something else|what else|which else|besides|apart from|aside from)\b/;   // "다른 건 없나요?" 류 추가 질문 → 준비된 카드에 억지로 맞추지 않음
+
+const ASR_FIX=[                                   // [잘못 들리는 소리, 바로잡은 말]  — 단어 사이 공백이 달라지는 경우 위주
+  [/\byou ?tube/gi,"youtube"],[/\bu ?tube/gi,"youtube"],[/\b(watch\w*|on|about|like|love|use|using) you ?two\b/gi,"$1 youtube"],
+  [/\b(we[bp]|wet|wept|webs|what) ?(toon|tune|ton|town|tone|turn|10)s?\b/gi,"webtoon"],
+  [/\bplay ?stations?( ?(4|5|four|five))?\b/gi,"playstation"],[/\bps ?(4|5|four|five)\b/gi,"playstation"],
+  [/\b(g ?t ?a( ?(5|five))?|grand theft auto( ?(5|five))?)\b/gi,"gta"],
+  [/\b(john ?rah?|jon ?ra|jonra|jaw ?nra|zhanra)\b/gi,"genre"],
+  [/\bhobbie'?s\b|\bhobby'?s\b/gi,"hobbies"],[/\bin ?doors?\b/gi,"indoor"],[/\bweek ?(ends?|and)\b/gi,(m,x)=>/^ends$/i.test(x)?"weekends":"weekend"],
+  [/\bgame ?play\b/gi,"gameplay"],[/\b(smart|cell) ?phones?\b/gi,"smartphone"],
+  [/^(wine|white|wise|wy|y) (?=(do|did|are|is|would|don't|can|you)\b)/i,"why "],
+  [/^(what's|whats)\b/i,"what is"],[/^(wat|watt|wad|wot|quad) (?=(is|are|do|did|kind|type|genre|your|games?|you)\b)/i,"what "],
+  [/^(how's)\b/i,"how is"],[/^(house|hao|hal) (?=(do|does|did|often|many|much|long|is|are|would)\b)/i,"how "],
+  [/^(where's)\b/i,"where is"],[/^(wear|ware) (?=(do|did|are|is|you|does)\b)/i,"where "],
+  [/^(win|wen|when's) (?=(do|did|are|is|you|does)\b)/i,"when "],[/^(witch|wich)\b/i,"which"]];
+const fixAsr=t=>ASR_FIX.reduce((x,[r,v])=>x.replace(r,v),String(t||"")).replace(/\b(fake|king|kine|kinda|kinds?)\s+(of\s+)?(?=games?\b|webtoons?\b|videos?\b|music\b|channels?\b|youtubers?\b|genres?\b)/gi,"kind of ");   // "kind of games"가 "fake games"로 들리는 경우
+function recapTail(t){                       // "You mentioned … hours … weekends, how do you manage this time?" → 진짜 질문 부분만 골라 판단 (앞의 되짚는 말에 끌려가지 않게)
+  const w=String(t||"").split(/\s+/); if(w.length<9||!/^(you (mentioned|said|told|talked|just)|earlier you|as you (said|mentioned)|i heard|so you)\b/i.test(t)) return t;
+  const cl=x=>String(x||"").toLowerCase().replace(/[^a-z']/g,"");
+  for(let i=w.length-1;i>=3;i--){ const x=cl(w[i]), y=cl(w[i+1]);
+    if(/^(how|what|why|where|when|which|who)$/.test(x)||(/^(do|did|does|can|could|would|have|has|will)$/.test(x)&&/^(you|your)$/.test(y))){
+      let k=i; if(k>0&&/^(how|what|why|where|when|which|who)$/.test(cl(w[k-1]))) k--;
+      const tail=w.slice(k).join(" "); return tail.split(/\s+/).length>=3?tail:t; } }
+  return t;
+}
+
+
+/* =====================================================================
+   화면
+   ===================================================================== */
+const $=id=>document.getElementById(id);
+const listEl=$("list"), statusEl=$("status"), heardText=$("heardText"), chips=$("chips"), topEl=$("top");
+const cardEls=DATA.map((d,i)=>{
+  const a=document.createElement("article"); a.className="card"; a.id="c"+i;
+  const q=document.createElement("div"); q.className="q"; q.textContent="Q. "+d.q+(QKO[d.q]?"  ·  "+QKO[d.q]:"");
+  const en=document.createElement("p"); en.className="en"; en.textContent=d.en;
+  const ko=document.createElement("p"); ko.className="ko"; ko.textContent=d.ko;
+  a.append(q,en,ko); a.addEventListener("click",()=>pick(i));
+  listEl.append(a); return a;
+});
+const wrapEl=document.querySelector(".wrap"), sideEl=$("side"), narrow=matchMedia("(max-width:859px)");
+let fitH=-1, fitB="";
+function fit(){
+  const h=topEl.offsetHeight+14, pb=narrow.matches?(sideEl.offsetHeight+28)+"px":"";
+  if(h!==fitH){ fitH=h; wrapEl.style.paddingTop=h+"px"; document.documentElement.style.setProperty("--topH",h+"px"); }
+  if(pb!==fitB){ fitB=pb; wrapEl.style.paddingBottom=pb; }
+}
+addEventListener("resize",fit);
+if("ResizeObserver" in window){ const ro=new ResizeObserver(()=>requestAnimationFrame(fit)); ro.observe(topEl); ro.observe(sideEl); }   // 칩·질문 줄 수가 바뀌어도 여백 자동 보정
+
+/* 오른쪽 패널: 교수님 말씀을 그대로 기록하고 한글 번역을 붙여요 (답변 추론 기능은 뺐어요) */
+const NOTR="(이 브라우저는 자동 번역을 지원하지 않아요 · 최신 Chrome 데스크톱에서 가능)";
+const WAITTR="(번역기를 준비하는 중이에요 · 처음에는 언어 파일을 내려받느라 시간이 걸릴 수 있어요. 시작 버튼이나 Enter를 한 번 눌러 주세요)";
+let TR=null, trNo=false, trWait=false, trP=null; const trCache=new Map();
+function getTR(){                                   // 브라우저 내장 번역(Translator API) 준비 — 버튼/Enter 누를 때 미리 호출
+  if(TR||trNo) return Promise.resolve(TR);
+  if(trP) return trP;
+  trP=(async()=>{
+    try{
+      if(!("Translator" in self)){ trNo=true; return null; }
+      const av=await Translator.availability({sourceLanguage:"en",targetLanguage:"ko"});
+      if(av==="unavailable"){ trNo=true; return null; }
+      TR=await Translator.create({sourceLanguage:"en",targetLanguage:"ko"}); trWait=false;
+      return TR;
+    }catch(e){ trP=null; return null; }
+  })();
+  return trP;
+}
+async function translateKo(t,whole){
+  const k=t.trim(); if(!k) return "";
+  if(trCache.has(k)) return trCache.get(k);
+  const tr=await Promise.race([getTR(),new Promise(r=>setTimeout(()=>r("wait"),5000))]);   // 준비가 오래 걸리면 안내 문구로
+  if(tr==="wait"){ trWait=true; return ""; } if(!tr) return "";
+  const w=k.split(/\s+/), parts=[];                 // 12단어를 넘으면 9단어쯤씩 나눠 번역 (whole이면 문장 중간에서 자르지 않고 한 번에)
+  if(whole||w.length<=12) parts.push(k);
+  else for(let i=0;i<w.length;){ let j=Math.min(i+9,w.length); if(w.length-j<5) j=w.length; parts.push(w.slice(i,j).join(" ")); i=j; }
+  try{
+    const out=await Promise.all(parts.map(async p=>{ if(trCache.has(p)) return trCache.get(p); const r=await tr.translate(p); if(trCache.size>2000) trCache.clear(); trCache.set(p,r); return r; }));
+    const r=out.join(" ").replace(/\s+/g," ").trim(); trCache.set(k,r); return r;
+  }catch(e){ return ""; }
+}
+let confirmedI=-1;   // 왼쪽에서 "확실"로 확정됐거나 내가 직접 고른 준비 카드 번호 (없으면 -1)
+$("sideToggle").addEventListener("click",()=>{ sideEl.classList.toggle("min"); txStick=true; fit(); txScroll(); });
+narrow.addEventListener("change",fit);
+
+
+let curTop=null;
+let markKey="";
+function mark(top,cands){
+  const key=top?top.i+"|"+cands.map(c=>c.i).join(",")+"|"+top.hit.join(","):"";
+  if(key===markKey) return; markKey=key;
+  cardEls.forEach(c=>{ c.classList.remove("top","cand"); c.removeAttribute("data-tag"); });
+  if(!top){ listEl.classList.remove("dim"); chips.textContent=""; return; }
+  const t=cardEls[top.i]; t.classList.add("top"); t.dataset.tag="✔ 추천 답변"; listEl.classList.add("dim");
+  chips.textContent="";
+  top.hit.forEach(h=>{ const s=document.createElement("span"); s.className="chip k"; s.textContent="✓ "+h; chips.append(s); });
+  cands.forEach((c,n)=>{ cardEls[c.i].classList.add("cand"); cardEls[c.i].dataset.tag="후보 "+(n+2);
+    const b=document.createElement("button"); b.className="chip"; b.textContent="후보 "+(n+2)+": "+DATA[c.i].q;
+    b.onclick=()=>pick(c.i);
+    chips.append(b); });
+}
+let lastShown="", lastRes=null;
+function logLast(){
+  if(!lastRes) return; const box=$("log"); if(box.firstChild&&!box.firstChild.className) box.textContent="";
+  const d=document.createElement("div"); d.className="l";
+  d.textContent="“"+lastRes.shown+"” → "+DATA[lastRes.i].q+" ("+lastRes.sc.toFixed(1)+")";
+  box.prepend(d); while(box.children.length>10) box.lastChild.remove(); lastRes=null;
+}
+// 1등 질문에만 있는 단어와 2등 질문에만 있는 단어가 둘 다 들렸다 = 두 질문이 섞여 들린 것 (한 사람 목소리에서는 거의 안 나타남)
+function mixedSig(top,sec,text){
+  const U=new Set(tokenize(text)), A=new Set(VAR[top.i].flat()), B=new Set(VAR[sec.i].flat()); let d1=0,d2=0;
+  for(const w of U){ if(A.has(w)&&!B.has(w)) d1++; if(B.has(w)&&!A.has(w)) d2++; }
+  const m=Math.min(d1,d2); return m>=3||(m>=2&&sec.sc/top.sc>=0.8);
+}
+const unconfirm=texts=>{ if(tokenize(texts[0][0]).length>=3) confirmedI=-1; };   // 확정 못 한 질문이면 "확정된 카드" 표시 해제
+function analyze(texts, shown, instant, conf, disp){
+  lastShown=shown;
+  heardText.innerHTML=""; const b=document.createElement("b"); b.textContent="“"+(disp||shown)+"”"; heardText.append(b); heardText.scrollTop=narrow.matches?0:heardText.scrollHeight;
+  const r=scoreAll(texts); let top=r[0];
+  if(EXTRA_RE.test(shown.toLowerCase().replace(/[’']/g,""))&&!(DATA[r[0].i].ex&&r[0].sc>=7)){      // "any other …?" 같은 추가 질문: 비슷한 단어가 많아도 준비된 카드(예: 가장 좋아하는 게임)로 확정하지 않음
+    mark(null); curTop=null; lastRes=null; unconfirm(texts); fit(); return r; }
+  if(curTop!==null){ const cur=r.find(x=>x.i===curTop); if(cur&&top.i!==curTop&&top.sc<cur.sc+1.2) top=cur; }   // 깜빡임 방지
+  if(top.sc<3){ mark(null); statusEl.textContent="👂 질문을 더 듣는 중…"; unconfirm(texts); fit(); return r; }
+  const second=r.find(x=>x.i!==top.i), changed=top.i!==curTop; curTop=top.i; lastRes={shown,i:top.i,sc:top.sc};
+  const LOW=conf>=0&&conf<0.55;                                       // 소리가 흐리거나 멀어서 인식기도 자신 없는 상태
+  const SURE0=top.sc>=(LOW?11:9)&&top.sc-second.sc>=(LOW?3:2), MIXED=SURE0&&mixedSig(top,second,texts[0][0]), SURE=SURE0&&!MIXED;
+  const cands=r.filter(x=>x.i!==top.i&&x.sc>=3&&x.sc>=top.sc*(LOW||!SURE?0.55:0.65)).slice(0,SURE?2:3); if(MIXED&&!cands.some(c=>c.i===second.i)) cands.unshift(second);
+  mark(top, cands.slice(0,3));
+  statusEl.textContent=(LOW?"🔉 소리가 흐려요 · ":"")+(SURE?"✅ 확실":MIXED?"🟠 두 질문이 섞여 들려요 · 후보에서 골라 주세요":top.sc>=6?"🟡 유력":"🟠 불확실")+" · 점수 "+top.sc.toFixed(1)+(LOW&&!SURE?" · 후보도 확인하세요":"");
+  if(changed) cardEls[top.i].scrollIntoView({behavior:"smooth",block:"center"});
+  const keep=confirmedI===top.i&&top.sc>=5;
+  if(keep||SURE) confirmedI=top.i;      // ✅ 확실 → 이 카드를 "확정"으로 기억 (답변 고정 기능용)
+  else unconfirm(texts);
+  fit(); return r;
+}
+// 카드를 직접 누르면 그 답변으로 고정 + 방금 들린 표현을 그 질문의 "다른 표현"으로 기억(학습)
+function pick(i){
+  if(curTop!==i && lastShown.split(/\s+/).length>=3 && !learned.some(l=>l.i===i&&l.t===lastShown)){
+    learned.push({i,q:DATA[i].q,t:lastShown}); learned=learned.slice(-80);
+    try{ localStorage.setItem("qaLearn",JSON.stringify(learned)); }catch(e){}
+    buildVars(); statusEl.textContent="🧠 이 표현을 기억했어요 (총 "+learned.length+"개)";
+  }
+  if(lastRes) lastRes.i=i;
+  curTop=i; mark({i,sc:99,hit:[]},[]); cardEls[i].scrollIntoView({behavior:"smooth",block:"center"});
+  confirmedI=i;
+}
+function resetQ(){ logLast(); qOpen=false; clearTimeout(closeT); pend=false; clearTimeout(holdT); curTop=null; lastT=0; skip=0; lastShown=""; mark(null); confirmedI=-1; heardText.textContent="교수님 질문이 여기에 표시돼요"; statusEl.textContent=on?"🎙 다음 질문 대기 중":"대기 중"; fit(); }
+
+/* 직접 입력 */
+$("typed").addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.value.trim()){ try{ getTR(); txAdd(e.target.value,"typed"); logLast(); curTop=null; confirmedI=-1; pend=false; clearTimeout(holdT); analyze([[e.target.value,1]],e.target.value.trim(),true); }catch(err){ recover(err); } e.target.blur(); }});
+$("next").addEventListener("click",()=>{ $("typed").value=""; resetQ(); });
+
+/* =====================================================================
+   음성 인식
+   ===================================================================== */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,on=false,running=false,qStart=0,lastT=0,wake=null; const GAP=2500; let skip=0;
+const RS=80;                                                     // 음성인식 재시작 대기(ms) — 짧을수록 듣지 못하는 공백이 줄어요
+/* 질문이 아직 진행 중인지: true인 동안에는 "내가 답변을 읽는 중"으로 판단하지 않아요 (질문 도중 멈춤 방지)
+   말이 끊긴 뒤 QEND ms 동안 조용하면 질문이 끝난 것으로 봐요. 말끝이 "and / the / your …" 처럼 걸쳐 있으면 더 오래 기다려요. */
+const QEND=1500, QEND_LONG=2300;
+let qOpen=false, closeT=0, lastFull="";
+/* 답변 고정 기능: 기본은 꺼짐 → 정지 버튼을 누르기 전까지 들리는 말을 계속 새 질문으로 반영해요 */
+let lockOn=false; try{ lockOn=localStorage.getItem("qaLock")==="1"; }catch(e){}
+function lockUi(){ const b=$("lockBtn"); b.textContent=lockOn?"🔒 답변 고정 켜짐":"🔓 답변 고정 꺼짐"; b.classList.toggle("act",lockOn); }
+$("lockBtn").addEventListener("click",()=>{ lockOn=!lockOn; try{ localStorage.setItem("qaLock",lockOn?"1":"0"); }catch(e){} pend=false; wasLocked=false; lockUi();
+  statusEl.textContent=lockOn?"🔒 답변 고정 켜짐 — 내가 답변을 읽는 동안 화면을 유지해요":"🔓 답변 고정 꺼짐 — 들리는 말을 계속 반영해요"; });
+lockUi();
+const DANGLE=/\b(and|or|the|a|an|your|my|to|of|in|on|at|with|about|for|do|does|did|you|are|is|what|why|how|when|where|which|who|that|if|so|but|because|like|can|could|would|then|also|too)$/;
+function armClose(){ clearTimeout(closeT);
+  const t=(lastFull||"").toLowerCase().replace(/[^a-z' ]+/g," ").trim();
+  closeT=setTimeout(()=>{ qOpen=false; },DANGLE.test(t)?QEND_LONG:QEND); }
+let pend=false, holdT=0, lastE=null, errWait=RS, wasLocked=false, rsT=0, rsPending=false, everStarted=false, lastTry=0, fails=0;
+function recover(err){ try{ console.error(err); pend=false; wasLocked=false; clearTimeout(holdT);
+  statusEl.textContent="⚠ 일시적인 오류가 있었지만 자동으로 복구했어요 — 계속 말씀해 주세요"; }catch(_){} }
+addEventListener("unhandledrejection",ev=>{ try{ ev.preventDefault(); console.error(ev.reason); }catch(_){} });
+addEventListener("error",ev=>{ try{ console.error(ev.error||ev.message); }catch(_){} });
+// 음성인식 재시작 예약 (중복 예약 방지 + 실패 시 점점 늦춰 재시도)
+function sched(delay){ if(!on) return; clearTimeout(rsT); rsPending=true;
+  rsT=setTimeout(()=>{ rsPending=false; if(!on) return;
+    try{ session(); fails=0; }catch(e){ if(++fails<6) sched(400*fails); else { on=false; ui(); statusEl.textContent="🎤 탭해서 다시 시작"; } } },delay==null?errWait:delay); }
+setInterval(()=>{ if(on&&everStarted&&!running&&!rsPending&&!document.hidden&&Date.now()-lastTry>4000) sched(0); },2000);   // 감시: 인식이 조용히 멈췄다면 되살림
+const QW1=new Set(tokenize("why what which who how when where tell explain describe please thank thanks good great nice excellent"));   // 질문/인사 단어 (앞 6단어 안에)
+const QW2=new Set(tokenize("do does did dont can could would are is was were arent isnt"));                                                 // 도치 질문 (맨 앞 3단어 안에만: "My game is…" 의 is 는 제외)
+const qLike=sg=>sg.slice(0,6).some(t=>QW1.has(t))||sg.slice(0,3).some(t=>QW2.has(t));
+function newQ(){ qOpen=true; pend=false; wasLocked=false; clearTimeout(holdT); logLast(); curTop=null; skip=0; confirmedI=-1; }
+function session(){
+  if(rec){ rec.onresult=rec.onerror=rec.onend=rec.onstart=null; try{ rec.abort(); }catch(e){} }   // 이전 인식기가 남아 있으면 정리 (이중 인식 방지)
+  txFlush(); lastTry=Date.now(); rec=new SR(); rec.lang=$("lang").value||"en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=5; qStart=0; skip=0;
+  rec.onstart=()=>{ running=true; everStarted=true; if(errWait<=RS) statusEl.textContent="🎙 질문 듣는 중…"; };
+  rec.onresult=e=>{
+    try{
+      const now=Date.now(); errWait=RS; try{ txFeed(e); }catch(err){ console.error(err); }
+      if(now-lastT>GAP){                                               // 잠깐 쉬었다 시작한 말
+        qStart=e.resultIndex; skip=0; qOpen=false;
+        if(lockOn&&curTop!==null) pend=true;                        // 화면에 답변이 떠 있으면: 내 답변 읽기인지 새 질문인지 몇 단어 듣고 판단
+        else newQ();
+      }
+      lastT=now; lastE=e; handle(e); armClose();
+    }catch(err){ recover(err); }
+  };
+  const handle=e=>{
+    const segs=[]; for(let i=qStart;i<e.results.length;i++) segs.push(Array.from(e.results[i]||[]).map(a=>a&&typeof a.transcript==="string"?a.transcript:"").filter((t,k)=>k===0||t));
+    if(!segs.length) return;                                         // 비어 있는 인식 결과는 무시
+    const full=segs.map(s=>s[0]).join(" ").trim(); lastFull=full;
+    const words=full.split(/\s+/);                                   // 답변과 실제로 일치한 마지막 단어까지만 건너뜀 (바로 이어지는 다음 질문의 첫 단어를 삼키지 않도록)
+    const anchor=pred=>{ let k=0; words.forEach((w,i)=>{ if(tokenize(w).some(pred)) k=i+1; }); return k; };
+    const lock=(msg,k)=>{ pend=false; wasLocked=true; clearTimeout(holdT); skip=Math.max(skip,k); statusEl.textContent=msg; };
+    if(lockOn&&curTop!==null){                                               // 내가 답변을 읽는 중이면 고정 (질문과 겹치는 단어는 근거에서 제외)
+      const ans=new Set(tokenize(DATA[curTop].en)), qv=new Set(VAR[curTop].flat()), tk=tokenize(full).slice(-8);
+      const ov=tk.filter(w=>ans.has(w)), ao=new Set(ov.filter(w=>!qv.has(w)));
+      const exact=t=>ans.has(t)&&!qv.has(t);
+      // 질문이 아직 진행 중이면(qOpen) 아주 엄격한 조건에서만 고정: 마지막 6단어 이상이 거의 다 답변 문장 + 답변 고유 단어 4개 이상
+      const tkS=tokenize(full).slice(-10), ovS=tkS.filter(w=>ans.has(w)), aoS=new Set(ovS.filter(w=>!qv.has(w)));
+      if(qOpen?(tkS.length>=6&&ovS.length/tkS.length>=0.8&&aoS.size>=4):(tk.length>=3&&ov.length/tk.length>=0.65&&ao.size>=2)){ lock("🗣 답변 중 — 하이라이트 고정",anchor(exact)); return; }
+      // 큰 소리로 뭉개져 인식돼도 유지: 그 답변이 화면에 떠 있고, 방금 한 말 덩어리에 "어떤 질문에도 안 쓰이는 답변 고유 단어"가 3개 이상이며 마지막 단어들도 일치
+      if(!qOpen&&confirmedI===curTop){
+        const near=(w,A)=>A.has(w)||(w.length>=4&&[...A].some(a=>wsim(w,a)));                 // 소리가 비슷한 단어도 같은 단어로
+        const isE=w=>near(w,ans)&&!IDF.has(w), seg=tokenize(segs[segs.length-1][0]||"");
+        if(new Set(seg.slice(-12).filter(isE)).size>=3&&seg.slice(-3).some(isE)){ lock("🗣 답변 중 — 하이라이트 고정",anchor(t=>isE(t)||exact(t))); return; }
+      }
+    }
+    // 화면에 답변이 떠 있는 동안, 방금 한 말이 "질문처럼" 시작하지 않으면 내가 답변을 읽는 중으로 보고 화면 유지 (소리가 뭉개져도 질문 단어로 시작하는지는 비교적 잘 보존됨)
+    if(lockOn&&!qOpen&&curTop!==null&&confirmedI===curTop){
+      const sg=tokenize(segs[segs.length-1][0]||"");
+      let ev; {                                                                       // 질문처럼 시작해도 답변 고유 단어가 3개 이상 섞여 있으면 답변 읽기 (앞에 잡담이 붙은 경우)
+        const A=new Set(tokenize(DATA[curTop].en)), nr=w=>A.has(w)||(w.length>=4&&[...A].some(a=>wsim(w,a)));
+        ev=new Set(sg.filter(w=>nr(w)&&!IDF.has(w))).size;
+      }
+      const ql=qLike(sg);
+      let lockIt=ev>=3||(!ql&&ev>=1);                                                                   // 답변 단어가 섞여 있어야 답변 읽기로 인정
+      if(lockIt&&!ql&&ev<3&&sg.length>=5){                                                              // 앞에 잡담이 붙었어도 끝부분이 다른 준비 질문과 거의 일치하면 새 질문
+        const rr=scoreAll([[sg.slice(-9).join(" "),1]])[0]; if(rr.sc>=9&&rr.i!==curTop) lockIt=false; }
+      if(lockIt){ if(sg.length>=3) lock("🗣 답변 중 — 화면 유지",words.length); return; }
+      if(!ql&&sg.length<3) return;                                                                      // 아주 짧은 조각은 무시
+    }
+    if(pend){
+      if(tokenize(full).length<3){ clearTimeout(holdT); holdT=setTimeout(()=>{ try{ if(pend){ newQ(); handle(lastE); } }catch(err){ recover(err); } },1100); return; }   // 아직 판단 불가 → 화면 그대로 유지(기침·잡음에 안 바뀜)
+      newQ();                                                        // 새 질문으로 판단
+    }
+    const ws=full.split(/\s+/).slice(skip);                          // 답변으로 읽은 부분은 제외
+    if(!ws.join("").length) return;
+    if(wasLocked&&tokenize(ws.join(" ")).length>=3){ wasLocked=false; const sk=skip; newQ(); skip=sk; }   // 답변 읽기가 끝나고 새 말이 시작됨 → 이전 카드 영향 제거
+    let main=fixAsr(ws.slice(-20).join(" ")); const last=segs[segs.length-1];
+    if(ws.length>10){ const tl=fixAsr(ws.slice(-9).join(" "));               // 앞쪽에 잡담이 길게 붙었으면 끝부분만으로도 비교
+      if(scoreAll([[tl,1]])[0].sc>scoreAll([[main,1]])[0].sc+0.5) main=tl; }
+    const texts=[[recapTail(main),1]];
+    for(let a=1;a<last.length;a++) texts.push([fixAsr(last[a]),0.7]);        // 가장 최근 문장의 다른 후보도 사용
+    if(segs.length>=2){                                                      // 말이 여러 토막으로 끊겨 들리면(멀리서·작은 소리) 모든 토막의 후보 단어를 합쳐 한 번 더 비교
+      let cum=0; const parts=[]; for(const sg of segs){ cum+=sg[0].split(/\s+/).filter(Boolean).length; if(cum>skip) for(const t of sg) if(t) parts.push(t); }
+      const u=fixAsr(parts.join(" ").split(/\s+/).slice(-40).join(" ")); if(u) texts.push([u,0.6]); }
+    const lr=e.results[e.results.length-1], cf=lr&&lr.isFinal&&lr[0]&&typeof lr[0].confidence==="number"?lr[0].confidence:-1;   // 인식기가 알려주는 확신도 (확정된 문장에만 있어요)
+    const dw=fixAsr(ws.join(" ")).split(/\s+/).filter(Boolean), disp=(dw.length>60?"… ":"")+dw.slice(-60).join(" ");   // 화면 표시용: 앞부분을 자르지 않음
+    analyze(texts,main,!!(lr&&lr.isFinal),cf,disp);
+  };
+  rec.onerror=ev=>{
+    if(ev.error==="audio-capture"){ on=false; ui(); statusEl.textContent="⛔ 마이크를 찾을 수 없어요 — 마이크 연결을 확인하고 다시 시작해 주세요"; return; }
+    if(ev.error==="network"){ errWait=3000; statusEl.textContent="⚠ 음성인식 서버에 연결할 수 없어요 — 인터넷 확인 후 재시도 중 (직접 입력은 가능해요)"; return; }
+    if(ev.error==="not-allowed"||ev.error==="service-not-allowed"){ on=false; ui();
+      statusEl.textContent=(window.self!==window.top)?"⛔ 마이크 차단(내장 화면) — 새 탭이나 https 주소로 열어주세요":"⛔ 마이크 권한이 필요해요"; }
+  };
+  rec.onend=()=>{ running=false; txFlush(); sched(); };
+  rec.start();
+}
+function ui(){ $("mic").classList.toggle("on",on); $("mic").textContent=on?"⏹ 정지":"🎤 시작"; }
+$("mic").addEventListener("click",async()=>{
+  getTR();
+  if(!SR){ statusEl.textContent="⚠ 이 브라우저는 음성인식을 지원하지 않아요 (Chrome·Safari·Edge 사용). 직접 입력은 가능해요."; return; }
+  if(on){ on=false; clearTimeout(rsT); rsPending=false; try{rec.stop();}catch(e){} ui(); statusEl.textContent="⏸ 일시정지 — 지금까지 들린 말은 오른쪽 패널에 모두 있어요"; sideEl.classList.remove("min"); txFill(); fit(); try{wake&&wake.release();}catch(e){} return; }
+  on=true; ui(); lastT=0;
+  try{ if("wakeLock" in navigator) wake=await navigator.wakeLock.request("screen"); }catch(e){}
+  try{ session(); }catch(e){ on=false; ui(); statusEl.textContent="⚠ 마이크를 시작하지 못했어요 — 다시 한 번 눌러 주세요"; }
+});
+document.addEventListener("visibilitychange",async()=>{
+  if(document.hidden||!on) return;
+  try{ if("wakeLock" in navigator) wake=await navigator.wakeLock.request("screen"); }catch(e){}
+  if(!running) sched(0);
+});
+
+/* =====================================================================
+   전체 인식 기록: 마이크가 들은 모든 말을 정지 버튼 전까지 순서대로 남김
+   (질문 판단·답변 고정 로직과는 별개로, 인식기가 돌려준 문장을 하나도 빼지 않고 저장)
+   ===================================================================== */
+const TX_MAX=200, BLOCK_GAP=6000, BLOCK_WORDS=60;       // 잠깐(6초 이내) 쉬어도 같은 글로 이어 붙임. 번역 덩어리는 최대 60단어
+let TB=[], txDone=0, txLive="", liveKo="", liveFor="", txFT=0, txLT=0, txRun=false, txAgain=false;
+const wc=t=>t.split(/\s+/).filter(Boolean).length, norm=t=>t.toLowerCase().replace(/\s+/g," ").trim();
+/* ---------- 영어 인식 보정 · 문장 나누기 · 번역 ---------- */
+const FILLER_RE=/\b(?:um+|uh+|erm|hmm+|mhm|mm+)\b[,.]?\s*/gi;                 // 군말 제거
+const DISP_FIX=[[/\bvalor(?:ant|ent|and)\b/gi,"Valorant"],[/\bgran tour?ismo\b/gi,"Gran Turismo"],[/\bred dead redemption\b/gi,"Red Dead Redemption"],
+  [/\bsolo leveling\b/gi,"Solo Leveling"],[/\bmedia (?:(?:and|&|in) )?communications?\b/gi,"Media and Communication"],
+  [/\byoutube/gi,"YouTube"],[/\bplaystation/gi,"PlayStation"],[/\bgta\b/gi,"GTA"],[/\bk ?pop\b/gi,"K-pop"],[/\btik ?tok\b/gi,"TikTok"]];
+function cleanEn(t){                                                           // 인식기가 준 글을 읽기 좋게: 잘못 들린 말 바로잡기·군말·중복 단어 제거·I 대문자·고유명사
+  t=String(t||"").replace(/\s+/g," ").trim(); if(!t) return "";
+  t=fixAsr(t).replace(FILLER_RE,"").replace(/\b([a-z']{2,})(?:\s+\1\b)+/gi,"$1").replace(/\bi\b/g,"I");
+  for(const [r,v] of DISP_FIX) t=t.replace(r,v);
+  return t.replace(/\s+/g," ").trim();
+}
+// 인식기는 문장부호를 안 붙여 줘서, 말이 끊긴 조각(=확정된 문장)을 '번역 단위'로 삼고 ?/. 를 붙여 번역기에 넣어요 (긴 덩어리를 통째로 넣을 때보다 훨씬 정확)
+const QSTART=/^(?:(?:so|and|then|well|okay|ok|now|also|but)\s+)*(?:what|why|how|where|when|which|who|whose|do|does|did|are|is|am|was|were|can|could|would|will|have|has|had|should|isn't|aren't|don't|doesn't|didn't|won't|wouldn't|can't|couldn't)\b/i;
+const QMID=/\b(?:what|why|how|where|when|which|who)\s+(?:do|did|does|would|can|could|are|is|was|were|have|has|will|should)\s+(?:you|your|they|we|it|he|she)\b/i;
+const QMIDG=new RegExp(QMID.source,"gi");
+const dangling=t=>DANGLE.test(String(t).toLowerCase().replace(/[^a-z' ]+/g," ").trim());
+const parts=b=>Array.isArray(b.p)&&b.p.length?b.p:[b.en];
+function txUnits(ps){ const out=[]; let cur="";                                // 너무 짧거나 and/the/to 처럼 말이 걸쳐 끊긴 조각은 다음 조각과 합침
+  for(const p of ps){ cur=cur?cur+" "+p:p; if(wc(cur)>=4&&!dangling(cur)){ out.push(cur); cur=""; } }
+  if(cur) out.push(cur); return out; }
+function splitQ(u){ let best=-1,m; QMIDG.lastIndex=0; while((m=QMIDG.exec(u))){ if(wc(u.slice(0,m.index))>=4&&!/[.?!]\s*$/.test(u.slice(0,m.index))) best=m.index; }
+  return best>0?u.slice(0,best).trim()+". "+u.slice(best):u; }                // "you mentioned … how do you …" → 앞 문장과 질문 분리
+function punct(u){ u=String(u||"").trim().replace(/[\s,;:]+$/,""); if(!u) return ""; u=splitQ(u);
+  u=u.replace(/(^|[.?!]\s+)([a-z])/g,(m,a,b)=>a+b.toUpperCase());
+  if(/[.?!]$/.test(u)) return u;
+  const i=Math.max(u.lastIndexOf(". "),u.lastIndexOf("? "),u.lastIndexOf("! ")), last=i>=0?u.slice(i+2):u;
+  return u+((QSTART.test(last)||QMID.test(last))?"?":"."); }
+function enShow(b,open){ const us=txUnits(parts(b));                           // open: 아직 말하는 중이라 마지막 조각엔 문장부호를 안 붙임
+  return us.map((x,i)=>(open&&i===us.length-1)?(i===0?x.charAt(0).toUpperCase()+x.slice(1):x):punct(x)).join(" "); }
+async function trParts(ps){ const us=txUnits(ps).map(punct).filter(Boolean); if(!us.length) return "";   // 조각별로 번역 (이미 번역한 조각은 캐시에서 바로)
+  const out=[]; for(const u of us){ const k=await translateKo(u,true); if(!k) return ""; out.push(k); } return out.join(" "); }
+// 확정 문장의 후보(최대 5개) 중에서 인식기 확신도 + 수업에서 나올 법한 단어가 더 많은 쪽을 고름 (확신도가 비슷하게 높을 때만)
+function pickAlt(res){ const a=Array.from(res||[]).filter(x=>x&&typeof x.transcript==="string"&&x.transcript.trim()); if(!a.length) return "";
+  const c0=typeof a[0].confidence==="number"?a[0].confidence:0; if(a.length===1||c0<=0||!IDF.size) return a[0].transcript;
+  const known=t=>{ const tk=tokenize(t); return tk.length?tk.filter(w=>IDF.has(w)).length/tk.length:0; };
+  let best=a[0], bs=c0+0.25*known(a[0].transcript);
+  for(let i=1;i<a.length;i++){ const c=typeof a[i].confidence==="number"?a[i].confidence:0, sc=c+0.25*known(a[i].transcript);
+    if(c>=c0*0.6&&sc>bs+0.05){ best=a[i]; bs=sc; } }
+  return best.transcript; }
+
+try{ const o=JSON.parse(localStorage.getItem("qaTx")||"[]");      // 이전 버전(줄 단위)으로 저장된 기록도 읽어요
+  if(Array.isArray(o)) TB=o.map(l=>{ if(!l) return null; const en=typeof l.en==="string"?l.en:typeof l.s==="string"?l.s:null; if(en===null) return null;
+    const ko=l.ko||l.k||""; return {at:l.at||Date.now(),end:l.end||l.at||Date.now(),en,p:Array.isArray(l.p)&&l.p.length?l.p:[en],ko,kfor:l.kfor||(ko?en:""),m:l.m||""}; }).filter(Boolean).slice(-TX_MAX); }catch(e){}
+const txList=$("txList"), txSum=$("txSum"), txEls=new WeakMap();
+let txLiveEl=null;
+const txTime=d=>new Date(d).toLocaleTimeString("ko-KR",{hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"});
+const txLabel=b=>b.m==="typed"?"⌨ 입력":b.m?"🗣 내 답변(추정)":"";
+function txSave(){ try{ localStorage.setItem("qaTx",JSON.stringify(TB)); }catch(e){} }
+function txJoin(){ const l=TB[TB.length-1]; return !!(txLive&&l&&!l.m&&Date.now()-l.end<=BLOCK_GAP&&wc(l.en)<BLOCK_WORDS); }   // 말하는 중인 문장이 마지막 글에 이어지는지
+function txMake(b){ const box=document.createElement("div"); box.className="b"+(b.m?" mine":"");
+  const en=document.createElement("div"); en.className="en"; const t=document.createElement("span"); t.className="t"; const tx=document.createTextNode(""); const lv=document.createElement("span"); lv.className="lv";
+  en.append(t,tx,lv); const k=document.createElement("div"); k.className="k"; box.append(en,k); const e={box,t,tx,lv,k}; txEls.set(b,e); return e; }
+function txPaint(b){ let e=txEls.get(b); if(!e) return; const last=b===TB[TB.length-1], j=last&&txJoin();
+  e.t.textContent=txTime(b.at)+(txLabel(b)?" "+txLabel(b):"")+"  "; e.tx.nodeValue=enShow(b,j); e.lv.textContent=j?" "+txLive:""; e.k.textContent=j&&liveKo?liveKo:b.ko; }
+function txCount(){ const w=TB.reduce((n,b)=>n+wc(b.en),0)+(txLive?wc(txLive):0); txSum.textContent=w?"약 "+w+"단어":""; }
+function txRender(){ txList.textContent=""; txLiveEl=null; TB.forEach(b=>{ txList.append(txMake(b).box); txPaint(b); }); txShowLive(); txStick=true; txScroll(); txCount(); }
+let txStick=true; const txJump=$("txJump");
+txList.addEventListener("scroll",()=>{ txStick=txList.scrollHeight-txList.scrollTop-txList.clientHeight<60; txJump.hidden=txStick; },{passive:true});
+txJump.onclick=()=>{ txStick=true; txJump.hidden=true; txList.scrollTop=txList.scrollHeight; };
+function txScroll(){ if(txStick) txList.scrollTop=txList.scrollHeight; }
+function txShowLive(){                                                       // 말하는 중인 문장: 이어지면 마지막 글 끝에, 아니면 새 줄에 흐리게
+  const last=TB[TB.length-1], j=txJoin(); if(last) txPaint(last);
+  if(txLive&&!j){ if(!txLiveEl){ txLiveEl=document.createElement("div"); txLiveEl.className="b live"; txLiveEl.innerHTML='<div class="en"></div><div class="k"></div>'; txList.append(txLiveEl); }
+    txLiveEl.firstChild.textContent="… "+txLive; txLiveEl.lastChild.textContent=liveKo; }
+  else if(txLiveEl){ txLiveEl.remove(); txLiveEl=null; }
+  txCount(); txScroll(); txLiveSched(); }
+function txLiveSched(){ clearTimeout(txLT);                                  // 말하는 중인 부분도 이어서 번역 (0.35초 쉬면)
+  if(!txLive){ liveKo=""; liveFor=""; return; }
+  txLT=setTimeout(async()=>{ if(!txLive) return; const ps=(txJoin()?parts(TB[TB.length-1]):[]).concat(txLive), text=ps.join(" "); liveFor=text; let k=""; try{ k=await trParts(ps); }catch(e){}
+    if(k&&liveFor===text&&txLive){ liveKo=k; const last=TB[TB.length-1]; if(txJoin()&&last) txPaint(last); else if(txLiveEl) txLiveEl.lastChild.textContent=k; txScroll(); } },400); }
+// 번역이 최신이 아닌 글을 차례로 번역 (글이 늘어나면 다시 번역, 번역기가 늦게 준비돼도 나중에 채워져요)
+function txFill(){ clearTimeout(txFT); txFT=setTimeout(txFillNow,350); }
+async function txFillNow(){
+  if(txRun){ txAgain=true; return; } txRun=true;
+  try{ do{ txAgain=false;
+      for(const b of TB.slice(-30)){ if(b.kfor===b.en) continue; const text=b.en; let k=""; try{ k=await trParts(parts(b)); }catch(e){}
+        if(k&&b.en===text){ b.ko=k; b.kfor=text; txPaint(b); txSave(); txScroll(); } else if(b.en!==text) txAgain=true; }
+    }while(txAgain); } finally{ txRun=false; }
+  if(trNo) $("txNote").textContent=NOTR; else if(trWait&&TB.some(b=>b.kfor!==b.en)) $("txNote").textContent=WAITTR; }
+function txAdd(text,kind){
+  text=String(text||"").trim().replace(/\s+/g," "); if(kind!=="typed") text=cleanEn(text); if(!text) return;
+  let m=kind||"";                                                          // 화면에 떠 있는 내 답변을 읽는 소리면 표시 (교수님 말씀과 구분)
+  if(!m&&confirmedI>=0){ const A=new Set(tokenize(DATA[confirmedI].en).filter(w=>w.length>2)), tk=tokenize(text), hit=new Set(tk.filter(w=>A.has(w)));
+    if(tk.length>=6&&hit.size>=4&&hit.size/tk.length>=0.45) m="mine"; }
+  const now=Date.now(), last=TB[TB.length-1]; let b;
+  if(last&&last.m===m&&m!=="typed"&&now-last.end<=BLOCK_GAP&&wc(last.en)<BLOCK_WORDS){ b=last; b.p=parts(b).concat(text); b.en=b.p.join(" "); b.end=now; }   // 끊겨 들려도 한 덩어리로 이어 붙임
+  else{ b={at:now,end:now,en:text,p:[text],ko:"",kfor:"",m}; TB.push(b); txList.insertBefore(txMake(b).box,txLiveEl); if(TB.length>TX_MAX){ const o=TB.shift(); const e=txEls.get(o); if(e) e.box.remove(); } }
+  if(liveKo&&liveFor&&norm(liveFor)===norm(b.en)){ b.ko=liveKo; b.kfor=b.en; }   // 방금까지 실시간으로 번역하던 문장이 그대로 확정되면 번역을 바로 이어받음
+  txPaint(b); txCount(); txScroll(); txSave(); txFill(); }
+function txFeed(e){                                                        // 인식기 결과에서 '확정된 문장'을 순서대로 빠짐없이, 아직 확정 전인 말은 실시간으로
+  const R=e.results; if(R.length<txDone) txDone=0;                       // 결과 목록이 새로 시작됐다면(인식기가 목록을 초기화) 처음부터
+  let i=txDone;
+  while(i<R.length&&R[i]&&R[i].isFinal){ txAdd(pickAlt(R[i])); i++; }
+  txDone=i; const rest=[]; for(let k=i;k<R.length;k++){ const a=R[k]&&R[k][0]; if(a&&a.transcript) rest.push(a.transcript.trim()); }
+  txLive=cleanEn(rest.join(" ")); txShowLive(); }
+function txFlush(){ if(txLive){ const t=txLive; txLive=""; txAdd(t); txShowLive(); } txDone=0; }    // 인식기가 끝나거나 재시작될 때 아직 확정 안 된 말도 남김
+$("txCopy").onclick=async()=>{ const text=TB.map(b=>"["+txTime(b.at)+"]"+(txLabel(b)?"["+txLabel(b)+"]":"")+" "+enShow(b,false)+(b.ko?"\n   "+b.ko:"")).join("\n\n"); let ok=false;
+  try{ await navigator.clipboard.writeText(text); ok=true; }catch(e){ const ta=document.createElement("textarea"); ta.value=text; document.body.append(ta); ta.select(); try{ ok=document.execCommand("copy"); }catch(_){} ta.remove(); }
+  $("txNote").textContent=ok?"✅ 복사했어요":"⚠ 복사하지 못했어요 — 길게 눌러 직접 선택해 주세요"; };
+$("txClear").onclick=()=>{ TB=[]; txLive=""; liveKo=""; liveFor=""; try{ localStorage.removeItem("qaTx"); }catch(e){} txRender(); $("txNote").textContent="지웠어요"; };
+txRender();
+let fscale=1; try{ fscale=+localStorage.getItem("qaFs")||1; }catch(e){}
+function setFs(v){ fscale=Math.max(0.8,Math.min(1.9,v)); document.documentElement.style.setProperty("--fs",fscale);
+  try{ localStorage.setItem("qaFs",fscale); }catch(e){} fit(); }
+$("fm").onclick=()=>setFs(fscale-0.1); $("fp").onclick=()=>setFs(fscale+0.1); setFs(fscale);
+document.addEventListener("keydown",e=>{ if(e.code==="Space"&&e.target.tagName!=="INPUT"){ e.preventDefault(); if(!e.repeat){ $("typed").value=""; resetQ(); } } });
+document.addEventListener("keyup",e=>{ if(e.code==="Space"&&e.target.tagName!=="INPUT") e.preventDefault(); });   // 버튼 위에서 스페이스를 떼는 순간 클릭되는 것 방지
+try{ const lg=localStorage.getItem("qaLang"); if(lg&&[...$("lang").options].some(o=>o.value===lg)) $("lang").value=lg; }catch(e){}
+$("lang").addEventListener("change",()=>{ try{ localStorage.setItem("qaLang",$("lang").value); }catch(e){} if(on){ clearTimeout(rsT); sched(0); statusEl.textContent="🎙 "+$("lang").selectedOptions[0].text+" 모델로 다시 듣는 중…"; } });
+fit();
+</script>
+</body>
+</html>
